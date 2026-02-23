@@ -15,7 +15,7 @@ Yes, there are plenty of WiFi auditing tools out there — wifite, fluxion, airg
 
 ## Demo
 
-<video src="https://github.com/YanivHaliwa/WifiSec/releases/download/V1/wifisec-demo.mp4" controls width="100%"></video>
+[▶ Watch Demo](https://github.com/YanivHaliwa/WifiSec/releases/download/V1/wifisec-demo.mp4)
 
 ---
 
