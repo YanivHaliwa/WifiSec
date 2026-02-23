@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Check if the correct number of arguments is provided
+if [ "$#" -lt 3 ] || [ "$#" -gt 4 ]; then
+    echo "Usage: $0 <hash_type> <wordlist> <hash_file> [session_name]"
+    exit 1
+fi
+
+# Assign command-line arguments to variables
+type=$1
+wordlist=$2
+file=$3
+session_name=$4
+
+# Use a default session name if not provided
+if [ -z "$session_name" ]; then
+    session_name="default"
+fi
+
+# Run the hashcat command with the provided arguments
+hashcat -a 0 -w 4 -O --status --session "$session_name" -m "$type" "$file" "$wordlist" 2>/dev/null
+
+echo ""
+found=$(hashcat --show -m "$type" "$file" 2>/dev/null)
+if [ -n "$found" ]; then
+    pass=$(echo "$found" | awk -F: '{print $NF}')
+    echo -e "\033[32mFOUND: $pass\033[0m"
+else
+    echo -e "\033[31mNOT FOUND\033[0m"
+fi

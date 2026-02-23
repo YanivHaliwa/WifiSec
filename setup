@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+BIN_DIR="/usr/local/bin"
+SRC_SCRIPTS=(WiFiSec.bin crackcap.bin hashc)
+DST_SCRIPTS=(WiFiSec     crackcap     hashc)
+REGISTER_SCRIPT="${SCRIPT_DIR}/register.bin"
+APT_PACKAGES=(
+  aircrack-ng
+  hcxdumptool
+  hcxtools
+  mdk4
+  cowpatty
+  hashcat
+  wireless-tools
+  iw
+  network-manager
+  python3
+)
+
+if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+  SUDO=""
+else
+  if ! command -v sudo >/dev/null 2>&1; then
+    echo "[ERR] sudo is required but not available."
+    exit 1
+  fi
+  SUDO="sudo"
+fi
+
+say() { printf "%s\n" "$*"; }
+info() { say "[INFO] $*"; }
+ok() { say "[OK]   $*"; }
+warn() { say "[WARN] $*"; }
+err() { say "[ERR]  $*"; }
+
+info "Validating source files in ${SCRIPT_DIR} ..."
+for src in "${SRC_SCRIPTS[@]}"; do
+  if [[ ! -f "${SCRIPT_DIR}/${src}" ]]; then
+    err "Missing file: ${SCRIPT_DIR}/${src}"
+    exit 1
+  fi
+done
+ok "All source files found."
+if [[ ! -f "${REGISTER_SCRIPT}" ]]; then
+  err "Missing file: ${REGISTER_SCRIPT}"
+  exit 1
+fi
+chmod +x "${REGISTER_SCRIPT}" 2>/dev/null || true
+
+say
+info "Running access registration ..."
+if [[ "${EUID:-$(id -u)}" -eq 0 && -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
+  if command -v sudo >/dev/null 2>&1; then
+    if sudo -u "${SUDO_USER}" -H "${REGISTER_SCRIPT}" --setup; then
+      ok "Access registration completed."
+    else
+      err "Access registration failed. Cannot continue without a valid access code."
+      exit 1
+    fi
+  elif command -v runuser >/dev/null 2>&1; then
+    if runuser -u "${SUDO_USER}" -- "${REGISTER_SCRIPT}" --setup; then
+      ok "Access registration completed."
+    else
+      err "Access registration failed. Cannot continue without a valid access code."
+      exit 1
+    fi
+  else
+    err "Could not switch to ${SUDO_USER}. Run manually: ${REGISTER_SCRIPT} --setup"
+    exit 1
+  fi
+else
+  if "${REGISTER_SCRIPT}" --setup; then
+    ok "Access registration completed."
+  else
+    err "Access registration failed. Cannot continue without a valid access code."
+    exit 1
+  fi
+fi
+
+info "Installing apt dependencies ..."
+${SUDO} apt update
+${SUDO} apt install -y "${APT_PACKAGES[@]}"
+ok "Apt packages installed."
+
+info "Copying files to ${BIN_DIR} ..."
+for i in "${!SRC_SCRIPTS[@]}"; do
+  src="${SRC_SCRIPTS[$i]}"
+  dst="${DST_SCRIPTS[$i]}"
+  ${SUDO} install -m 755 "${SCRIPT_DIR}/${src}" "${BIN_DIR}/${dst}"
+  ok "Installed ${BIN_DIR}/${dst}"
+done
+
+export PATH="${BIN_DIR}:${PATH}"
+hash -r 2>/dev/null || true
+
+info "Verifying command resolution paths ..."
+verify_fail=0
+for dst in "${DST_SCRIPTS[@]}"; do
+  target="${BIN_DIR}/${dst}"
+  resolved="$(type -P "${dst}" || true)"
+  if [[ "${resolved}" == "${target}" ]]; then
+    ok "${dst} -> ${resolved}"
+  else
+    warn "${dst} resolves to '${resolved:-NOT FOUND}', expected '${target}'"
+    verify_fail=1
+  fi
+done
+
+if [[ "${verify_fail}" -ne 0 ]]; then
+  err "Setup finished with path verification warnings."
+  err "Open a new shell or ensure PATH includes ${BIN_DIR} first."
+  exit 1
+fi
+
+say
+say "========================================="
+say " WiFiSec setup completed successfully"
+say " Installed tools:"
+for dst in "${DST_SCRIPTS[@]}"; do
+  say "  - ${BIN_DIR}/${dst}"
+done
+say "========================================="
