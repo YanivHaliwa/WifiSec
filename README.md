@@ -1,5 +1,8 @@
 # WiFiSec
 
+> **⚠️ IMPORTANT — Security Update Required**
+> **The binaries have been updated with enhanced security infrastructure. Previous versions will no longer work. You must download and reinstall the latest binaries from this repository to continue using WiFiSec.**
+
 Yes, there are plenty of WiFi auditing tools out there — wifite, fluxion, airgeddon and others. Most of them are either bloated, slow to set up, or built around a single attack method. WiFiSec was built differently.
 
 **What makes it stand out:**
